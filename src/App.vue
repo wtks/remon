@@ -3,10 +3,10 @@
     v-content
       v-container(fluid)
         div {{ currentStateString }}
-        v-btn(@click="postState({})") オフ
-        v-btn(@click="postState({power:1, mode:0, presetTemp:26})") 冷房26℃
-        v-btn(@click="postState({power:1, mode:1, presetTemp:26})") 暖房26℃
-        v-btn(@click="postState({power:1, mode:2, presetTemp:26})") 除湿26℃
+        v-btn(:disabled="!isOnline" @click="postState({})") オフ
+        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:0, presetTemp:26})") 冷房26℃
+        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:1, presetTemp:26})") 暖房26℃
+        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:2, presetTemp:26})") 除湿26℃
     v-footer.pa-3
       template(v-if="isOnline")
         status-indicator(positive)
