@@ -19,9 +19,9 @@
         v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:0})" small depressed) 冷房
         v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:1})" small depressed) 暖房
         v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:2})" small depressed) 除湿
-        v-slider(v-model="tempSlider" @change="pushChanges({PresetTemp: $event})" always-dirty min="16" max="30" thumb-label ticks="always" tick-size="2")
-        v-slider(v-model="volSlider" @change="pushChanges({AirVolume: $event})" always-dirty min="0" max="6" ticks="always" tick-size="2" :tick-labels="volLabels")
-        v-slider(v-model="dirSlider" @change="pushChanges({WindDirection: $event})" always-dirty min="0" max="5" ticks="always" tick-size="2" :tick-labels="dirLabels")
+        v-slider(:disabled="!isOnline" v-model="tempSlider" @change="pushChanges({PresetTemp: $event})" always-dirty min="16" max="30" thumb-label ticks="always" tick-size="2")
+        v-slider(:disabled="!isOnline" v-model="volSlider" @change="pushChanges({AirVolume: $event})" always-dirty min="0" max="6" ticks="always" tick-size="2" :tick-labels="volLabels")
+        v-slider(:disabled="!isOnline" v-model="dirSlider" @change="pushChanges({WindDirection: $event})" always-dirty min="0" max="5" ticks="always" tick-size="2" :tick-labels="dirLabels")
     v-footer.pa-3
       template(v-if="isOnline")
         status-indicator(positive pulse)
