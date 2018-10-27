@@ -4,11 +4,8 @@
       v-container(fluid)
         v-layout(wrap)
           v-flex(xs2)
-            v-icon(v-if="state.power === 0" color="red") mdi-circle-outline
-            v-icon(v-else-if="state.power === 1" color="blue") mdi-circle
-            v-icon(v-else) mdi-help-circle
-          v-flex(xs2)
-            p {{ currentModeString }}
+            p(v-if="state.power === 0") オフ
+            p(v-else) {{ currentModeString }}
           v-flex(xs2)
             p {{ currentTempString }}
           v-flex(xs2)
