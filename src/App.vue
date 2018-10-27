@@ -2,14 +2,29 @@
   v-app
     v-content
       v-container(fluid)
-        div {{ currentStateString }}
-        v-btn(:disabled="!isOnline" @click="postState({})") オフ
-        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:0, presetTemp:26})") 冷房26℃
-        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:1, presetTemp:26})") 暖房26℃
-        v-btn(:disabled="!isOnline" @click="postState({power:1, mode:2, presetTemp:26})") 除湿26℃
+        v-layout(wrap)
+          v-flex(xs2)
+            v-icon(v-if="state.power === 0" color="red") mdi-circle-outline
+            v-icon(v-else-if="state.power === 1" color="blue") mdi-circle
+            v-icon(v-else) mdi-help-circle
+          v-flex(xs2)
+            p {{ currentModeString }}
+          v-flex(xs2)
+            p {{ currentTempString }}
+          v-flex(xs2)
+            p 風量 {{ currentVolString }}
+          v-flex(xs2)
+            p 風向 {{ currentDirString }}
+        v-btn(:disabled="!isOnline" @click="pushChanges({Power: 0})" small depressed) オフ
+        v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:0})" small depressed) 冷房
+        v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:1})" small depressed) 暖房
+        v-btn(:disabled="!isOnline" @click="pushChanges({power:1, mode:2})" small depressed) 除湿
+        v-slider(v-model="tempSlider" @change="pushChanges({PresetTemp: $event})" always-dirty min="16" max="30" thumb-label ticks="always" tick-size="2")
+        v-slider(v-model="volSlider" @change="pushChanges({AirVolume: $event})" always-dirty min="0" max="6" ticks="always" tick-size="2" :tick-labels="volLabels")
+        v-slider(v-model="dirSlider" @change="pushChanges({WindDirection: $event})" always-dirty min="0" max="5" ticks="always" tick-size="2" :tick-labels="dirLabels")
     v-footer.pa-3
       template(v-if="isOnline")
-        status-indicator(positive)
+        status-indicator(positive pulse)
         span ONLINE
       template(v-else)
         status-indicator(negative)
@@ -40,8 +55,10 @@
 <script>
 import { StatusIndicator } from 'vue-status-indicator'
 import mqtt from 'async-mqtt'
+import pDebounce from 'p-debounce'
 
 let client
+let pendingChanges = {}
 
 export default {
   name: 'app',
@@ -51,40 +68,49 @@ export default {
   data: function () {
     return {
       isOnline: false,
-      currentState: null,
+      currentStateRaw: null,
+      state: {
+        valid: false,
+        power: -1,
+        mode: -1,
+        temp: -1,
+        vol: -1,
+        dir: -1
+      },
       settingDialog: {
         open: false,
         address: '',
         username: '',
         password: ''
-      }
+      },
+      tempSlider: -1,
+      dirSlider: -1,
+      volSlider: -1,
+      modeLabels: ['冷房', '暖房', '除湿'],
+      volLabels: ['Auto', '0', '1', '2', '3', '4', '5', 'パワフル'],
+      dirLabels: ['Auto', '1', '2', '3', '4', '5']
     }
   },
   computed: {
-    currentStateString: function () {
-      if (this.currentState == null) {
-        return '不明'
-      } else {
-        let str = ''
-        switch (this.currentState.Power) {
-          case 0:
-          case 3:
-            return 'オフ'
-        }
-        switch (this.currentState.Mode) {
-          case 0:
-            str += '冷房'
-            break
-          case 1:
-            str += '暖房'
-            break
-          case 2:
-            str += '除湿'
-            break
-        }
-        str += this.currentState.PresetTemp
-        return str
-      }
+    currentModeString: function () {
+      if (!this.state.valid) return '??'
+      if (this.state.mode < 0 || this.state.mode > 2) return '??'
+      return this.modeLabels[this.state.mode]
+    },
+    currentTempString: function () {
+      if (!this.state.valid) return '??℃'
+      if (this.state.temp < 16 || this.state.temp > 30) return '??℃'
+      return this.state.temp + '℃'
+    },
+    currentVolString: function () {
+      if (!this.state.valid) return '??'
+      if (this.state.vol < 0 || this.state.vol > 6) return '??'
+      return this.volLabels[this.state.vol]
+    },
+    currentDirString: function () {
+      if (!this.state.valid) return '??'
+      if (this.state.dir < 0 || this.state.dir > 5) return '??'
+      return this.dirLabels[this.state.dir]
     }
   },
   watch: {
@@ -94,6 +120,15 @@ export default {
         this.settingDialog.username = this.$localStorage.get('MQTT_USERNAME')
         this.settingDialog.password = this.$localStorage.get('MQTT_PASSWORD')
       }
+    },
+    'state.temp': function (v) {
+      this.tempSlider = v
+    },
+    'state.dir': function (v) {
+      this.dirSlider = v
+    },
+    'state.vol': function (v) {
+      this.volSlider = v
     }
   },
   mounted: async function () {
@@ -131,17 +166,33 @@ export default {
         }
       })
     },
-    postState: async function (state) {
+    pushChanges: async function (changes) {
+      Object.assign(pendingChanges, changes)
+      await this.changeState(pendingChanges)
+    },
+    changeState: async function (state) {
+      const s = Object.assign({}, this.currentStateRaw, state)
+      await this.sendState(s)
+    },
+    sendState: pDebounce(async state => {
       try {
         await client.publish('/aircon/action', JSON.stringify(state))
       } catch (e) {
         console.error(e)
       }
-    },
+    }, 1000),
     receiveMessage: async function (topic, message, packet) {
       try {
         if (topic === '/aircon/state') {
-          this.currentState = JSON.parse(message)
+          const currentState = JSON.parse(message)
+          this.currentStateRaw = currentState
+          this.state.power = currentState.Power
+          this.state.mode = currentState.Mode
+          this.state.temp = currentState.PresetTemp
+          this.state.vol = currentState.AirVolume
+          this.state.dir = currentState.WindDirection
+          this.state.valid = true
+          pendingChanges = {}
         }
       } catch (e) {
         console.error(e)

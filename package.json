@@ -11,6 +11,7 @@
     "@babel/polyfill": "^7.0.0-rc.1",
     "async-mqtt": "^2.0.0",
     "mqtt": "^2.18.8",
+    "p-debounce": "^1.0.0",
     "vue": "^2.5.17",
     "vue-localstorage": "^0.6.2",
     "vue-status-indicator": "^1.1.1",
