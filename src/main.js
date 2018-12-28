@@ -5,6 +5,7 @@ import Vuetify from 'vuetify'
 import 'vuetify/dist/vuetify.min.css'
 import 'vue-status-indicator/styles.css'
 import App from './App.vue'
+import './registerServiceWorker'
 
 Vue.use(Vuetify, {
   iconfont: 'mdi'
